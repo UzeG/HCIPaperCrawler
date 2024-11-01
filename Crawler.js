@@ -39,6 +39,82 @@ export default class Crawler {
         ));
         // console.log('heading1 lazy-loaded not visible');
 
+        const btnCite = await this.driver
+        .findElement(By.css('.table-of-content__options.sticky_checkboxes'))
+        .findElement(By.css('.btn.light.export-citation'))
+
+        const sessionHeading = [];
+        const sessionItems = await this.driver
+        .findElement(By.css('.accordion-vport--res.accordion-with-arrow'))
+        .findElement(By.css('.accordion-tabbed.rlist'))
+        .findElements(By.css('.section__title.accordion-tabbed__control.left-bordered-title'));
+
+        for (const sessionItem of sessionItems) {
+            const sessionName = await sessionItem.getText();
+            console.log(sessionName);
+            sessionHeading.push(sessionName);
+
+            const checkBox = await sessionItem
+            .findElement(By.xpath('preceding-sibling::*[1]'));
+            try {
+                await checkBox.click();
+            } catch {
+                // handle cookie dialog
+                await this.driver.wait(until.elementIsVisible(
+                    this.driver.findElement(By.id('CybotCookiebotDialog'))
+                        .findElement(By.id('CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll'))
+                ));
+
+                await this.driver.findElement(By.id('CybotCookiebotDialog'))
+                .findElement(By.id('CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll'))
+                .click();
+
+                await checkBox.click();
+            }
+            await this.sleep(1);
+
+            let isClickable = false;
+
+            while (!isClickable) {
+                try {
+                    await btnCite.click();
+                    isClickable = true;
+                } catch(error) {
+                    if (error.name === 'ElementClickInterceptedError') {
+                        // 如果元素仍然被遮挡，则向上滚动
+                        await this.driver.executeScript("window.scrollBy(0, -100);"); // 向上滚动 100 像素
+                    } else {
+                        throw error; // 其他错误，抛出
+                    }
+                }
+            }
+
+            const bibTex = []
+        
+            const cslEntrySelector = By.css('#exportCitation pre .csl-entry');
+
+            // 等待至少一个 csl-entry 元素存在于 DOM 中
+            await this.driver.wait(until.elementLocated(cslEntrySelector), 10000);
+
+            const bibItems = await this.driver
+            .findElement(By.id('exportCitation'))
+            .findElement(By.css('pre'))
+            .findElements(By.className('csl-entry'))
+
+            for (const bibItem of bibItems) {
+                const text = await bibItem.findElement(By.className('csl-right-inline')).getText();
+                bibTex.push(text);
+            }
+
+            await this.driver
+            .findElement(By.id('exportCitation'))
+            .findElement(By.className('close'))
+            .click();
+
+            await checkBox.click();
+        }
+        return;
+        
         let count = 100;
         while (count > 0) {
             try {
