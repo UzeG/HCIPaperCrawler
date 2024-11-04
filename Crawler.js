@@ -28,8 +28,18 @@ export default class Crawler {
             .build();
     }
 
+    async clearCheckBox() {
+        const checkBoxAll = await this.driver
+        .findElement(By.id('absSection'))
+        .findElement(By.xpath('following-sibling::*[2]'))
+        .findElement(By.className('item-results__checkbox'));
+        await checkBoxAll.click();
+        await checkBoxAll.click();
+    }
+
     async crawl() {
-        await this.driver.get(this.getJoinedUrl('/doi/proceedings/10.1145/3613904'));
+        // await this.driver.get(this.getJoinedUrl('/doi/proceedings/10.1145/3613904'));
+        await this.driver.get(this.getJoinedUrl('/doi/proceedings/10.1145/3613905'));
 
         await this.driver.wait(until.elementIsNotVisible(
             // this.driver.findElement(By.css('.accordion-tabbed__content .lazy-loaded'))
@@ -49,10 +59,15 @@ export default class Crawler {
         .findElement(By.css('.accordion-tabbed.rlist'))
         .findElements(By.css('.section__title.accordion-tabbed__control.left-bordered-title'));
 
-        for (const sessionItem of sessionItems) {
-            const sessionName = await sessionItem.getText();
-            console.log(sessionName);
-            sessionHeading.push(sessionName);
+        let counter = 0;
+        const sessionNum = sessionItems.length;
+        const batchSize = 100;
+        const bibTex = []
+
+        for (const [index, sessionItem] of sessionItems.entries()) {
+            // const sessionName = await sessionItem.getText();
+            // console.log(sessionName);
+            // sessionHeading.push(sessionName);
 
             const checkBox = await sessionItem
             .findElement(By.xpath('preceding-sibling::*[1]'));
@@ -71,7 +86,10 @@ export default class Crawler {
 
                 await checkBox.click();
             }
-            await this.sleep(1);
+
+            if (index % batchSize !== 0 && index !== sessionNum - 1) {
+                continue; // 跳过本次循环的后续操作
+            }
 
             let isClickable = false;
 
@@ -82,19 +100,17 @@ export default class Crawler {
                 } catch(error) {
                     if (error.name === 'ElementClickInterceptedError') {
                         // 如果元素仍然被遮挡，则向上滚动
-                        await this.driver.executeScript("window.scrollBy(0, -100);"); // 向上滚动 100 像素
+                        await this.driver.executeScript("window.scrollBy(0, -500);"); // 向上滚动 100 像素
                     } else {
                         throw error; // 其他错误，抛出
                     }
                 }
             }
-
-            const bibTex = []
         
             const cslEntrySelector = By.css('#exportCitation pre .csl-entry');
 
             // 等待至少一个 csl-entry 元素存在于 DOM 中
-            await this.driver.wait(until.elementLocated(cslEntrySelector), 10000);
+            await this.driver.wait(until.elementLocated(cslEntrySelector), 120000);
 
             const bibItems = await this.driver
             .findElement(By.id('exportCitation'))
@@ -111,9 +127,10 @@ export default class Crawler {
             .findElement(By.className('close'))
             .click();
 
-            await checkBox.click();
+            await this.clearCheckBox();
         }
-        return;
+
+        return bibTex;
         
         let count = 100;
         while (count > 0) {
